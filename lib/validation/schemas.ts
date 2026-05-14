@@ -57,6 +57,12 @@ export const updateFileSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional()
 });
 
+export const createFileLinkSchema = z.object({
+  target_resource_type: z.enum(["todo"]),
+  target_resource_id: z.string().trim().min(1),
+  relationship: z.string().trim().min(1).max(80).default("artifact")
+});
+
 export const fileKindSchema = z
   .enum(["artifact", "attachment", "knowledge_source", "skill_asset", "log", "export", "other"])
   .default("artifact");

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { writeAuditEvent } from "@/lib/api/audit";
-import { ApiError, withApi } from "@/lib/api/errors";
+import { withApi } from "@/lib/api/errors";
+import { findWorkspaceFile } from "@/lib/api/files";
 import { routeParams, type RouteContext } from "@/lib/api/params";
 import {
   actorDbFields,
@@ -12,30 +13,6 @@ import { updateFileSchema } from "@/lib/validation/schemas";
 
 type Params = { orgId: string; workspaceId: string; fileId: string };
 
-async function findFile(
-  supabase: ReturnType<typeof createSupabaseServiceClient>,
-  workspaceId: string,
-  filePublicId: string
-) {
-  const { data: file, error } = await supabase
-    .from("files")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .eq("public_id", filePublicId)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!file) {
-    throw new ApiError("not_found", "File not found.");
-  }
-
-  return file;
-}
-
 export async function GET(request: Request, context: RouteContext<Params>) {
   return withApi(async () => {
     const { orgId, workspaceId, fileId } = await routeParams(context);
@@ -45,7 +22,11 @@ export async function GET(request: Request, context: RouteContext<Params>) {
       workspacePublicId: workspaceId,
       requiredAgentScope: "files:read"
     });
-    const file = await findFile(supabase, workspaceContext.workspace.id, fileId);
+    const file = await findWorkspaceFile(
+      supabase,
+      workspaceContext.workspace.id,
+      fileId
+    );
 
     return NextResponse.json({ file });
   });
@@ -62,7 +43,11 @@ export async function PATCH(request: Request, context: RouteContext<Params>) {
       requiredAgentScope: "files:write"
     });
     const actor = actorDbFields(workspaceContext.actor);
-    const existing = await findFile(supabase, workspaceContext.workspace.id, fileId);
+    const existing = await findWorkspaceFile(
+      supabase,
+      workspaceContext.workspace.id,
+      fileId
+    );
 
     const { data: file, error } = await supabase
       .from("files")
@@ -105,7 +90,11 @@ export async function DELETE(request: Request, context: RouteContext<Params>) {
       requiredAgentScope: "files:write"
     });
     const actor = actorDbFields(workspaceContext.actor);
-    const existing = await findFile(supabase, workspaceContext.workspace.id, fileId);
+    const existing = await findWorkspaceFile(
+      supabase,
+      workspaceContext.workspace.id,
+      fileId
+    );
 
     const { data: file, error } = await supabase
       .from("files")

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
+import { AccessPending } from "@/components/app-shell/access-pending";
 import { DashboardClient, type DashboardData } from "@/components/app-shell/dashboard-client";
 import { SetupRequired } from "@/components/app-shell/setup-required";
+import { ensureUserAccess } from "@/lib/auth/access";
 import { supabasePublishableKey, supabaseSecretKey } from "@/lib/config/env";
 import { createSupabaseServerClient } from "@/lib/data/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/data/supabase/service";
@@ -28,6 +30,22 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
         : row.organizations)
     })) ?? [];
   const selectedOrg = organizations[0];
+  const { data: access } = await supabase
+    .from("user_access")
+    .select("is_platform_admin")
+    .eq("user_id", userId)
+    .maybeSingle<{ is_platform_admin: boolean }>();
+  let signupRequests: DashboardData["signupRequests"] = [];
+
+  if (access?.is_platform_admin) {
+    const { data: requests } = await supabase
+      .from("user_access")
+      .select("public_id, email, status, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+
+    signupRequests = requests ?? [];
+  }
 
   if (!selectedOrg) {
     return {
@@ -35,7 +53,9 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
       workspaces: [],
       agents: [],
       todos: [],
-      files: []
+      files: [],
+      isPlatformAdmin: access?.is_platform_admin ?? false,
+      signupRequests
     };
   }
 
@@ -61,7 +81,9 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
       workspaces: workspaces ?? [],
       agents: agents ?? [],
       todos: [],
-      files: []
+      files: [],
+      isPlatformAdmin: access?.is_platform_admin ?? false,
+      signupRequests
     };
   }
 
@@ -91,7 +113,9 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
     workspaces: workspaces ?? [],
     agents: agents ?? [],
     todos: todos ?? [],
-    files: files ?? []
+    files: files ?? [],
+    isPlatformAdmin: access?.is_platform_admin ?? false,
+    signupRequests
   };
 }
 
@@ -109,6 +133,13 @@ export default async function AppPage() {
     redirect("/login");
   }
 
+  const serviceSupabase = createSupabaseServiceClient();
+  const access = await ensureUserAccess(serviceSupabase, user);
+
+  if (access.status === "pending" || access.status === "rejected") {
+    return <AccessPending email={access.email} status={access.status} />;
+  }
+
   let data: DashboardData;
   let setupError: string | null = null;
 
@@ -121,7 +152,9 @@ export default async function AppPage() {
       workspaces: [],
       agents: [],
       todos: [],
-      files: []
+      files: [],
+      isPlatformAdmin: access.is_platform_admin,
+      signupRequests: []
     };
   }
 

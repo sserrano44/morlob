@@ -68,12 +68,21 @@ type FileRecord = {
   created_at: string;
 };
 
+type SignupRequest = {
+  public_id: string;
+  email: string;
+  status: "pending";
+  created_at: string;
+};
+
 export type DashboardData = {
   organizations: Organization[];
   workspaces: Workspace[];
   agents: Agent[];
   todos: Todo[];
   files: FileRecord[];
+  isPlatformAdmin: boolean;
+  signupRequests: SignupRequest[];
 };
 
 type Props = {
@@ -117,6 +126,7 @@ export function DashboardClient({ data, email, setupError }: Props) {
   const [agents, setAgents] = useState(data.agents);
   const [todos, setTodos] = useState(data.todos);
   const [files, setFiles] = useState(data.files);
+  const [signupRequests, setSignupRequests] = useState(data.signupRequests);
   const [selectedOrgId, setSelectedOrgId] = useState(
     data.organizations[0]?.public_id ?? ""
   );
@@ -223,6 +233,21 @@ export function DashboardClient({ data, email, setupError }: Props) {
       setOrganizations((current) => [...current, { ...payload.organization, role: "owner" }]);
       setSelectedOrgId(payload.organization.public_id);
       setOrgName("");
+    });
+  }
+
+  function updateSignupRequest(request: SignupRequest, status: "approved" | "rejected") {
+    run(async () => {
+      await readJson<{ access: unknown }>(
+        await fetch(`/api/admin/signup-requests/${request.public_id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ status })
+        })
+      );
+      setSignupRequests((current) =>
+        current.filter((item) => item.public_id !== request.public_id)
+      );
     });
   }
 
@@ -503,6 +528,53 @@ export function DashboardClient({ data, email, setupError }: Props) {
 
         <section className="mt-6 grid gap-5 lg:grid-cols-[340px_1fr]">
           <div className="space-y-5">
+            {data.isPlatformAdmin ? (
+              <Card className="p-4">
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Signup approvals
+                </h2>
+                <div className="mt-4 divide-y divide-border">
+                  {signupRequests.length === 0 ? (
+                    <p className="py-3 text-sm text-muted-foreground">
+                      No pending signups.
+                    </p>
+                  ) : null}
+                  {signupRequests.map((request) => (
+                    <div
+                      className="flex items-center justify-between gap-3 py-3"
+                      key={request.public_id}
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">
+                          {request.email}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {request.public_id}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => updateSignupRequest(request, "approved")}
+                          size="sm"
+                          variant="secondary"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          onClick={() => updateSignupRequest(request, "rejected")}
+                          size="sm"
+                          variant="danger"
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
+
             <Card className="p-4">
               <h2 className="flex items-center gap-2 text-sm font-semibold">
                 <Plus className="h-4 w-4 text-primary" />
@@ -681,7 +753,7 @@ export function DashboardClient({ data, email, setupError }: Props) {
                 <span className="text-xs text-muted-foreground">5 MB max</span>
               </div>
               <form
-                className="mt-4 grid gap-2 md:grid-cols-[1fr_auto_auto]"
+                className="mt-4 grid gap-2 md:grid-cols-[1fr_auto_auto_auto]"
                 onSubmit={(event) => {
                   event.preventDefault();
                   const formData = new FormData(event.currentTarget);
@@ -696,6 +768,17 @@ export function DashboardClient({ data, email, setupError }: Props) {
                 >
                   <option value="private">Private</option>
                   <option value="public">Public</option>
+                </select>
+                <select
+                  className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
+                  name="todo_id"
+                >
+                  <option value="">No todo link</option>
+                  {todos.map((todo) => (
+                    <option key={todo.public_id} value={todo.public_id}>
+                      {todo.title}
+                    </option>
+                  ))}
                 </select>
                 <Button disabled={isPending || !selectedWorkspaceId} type="submit">
                   <Upload className="h-4 w-4" />

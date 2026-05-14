@@ -27,12 +27,24 @@ export function LoginForm() {
       const result =
         mode === "signin"
           ? await supabase.auth.signInWithPassword({ email, password })
-          : await supabase.auth.signUp({
-              email,
-              password,
-              options: {
-                emailRedirectTo: `${window.location.origin}/app`
+          : await fetch("/api/auth/signup", {
+              method: "POST",
+              headers: {
+                "content-type": "application/json"
+              },
+              body: JSON.stringify({ email, password })
+            }).then(async (response) => {
+              const payload = await response.json();
+
+              if (!response.ok) {
+                return {
+                  error: {
+                    message: payload?.error?.message ?? "Signup failed."
+                  }
+                };
               }
+
+              return supabase.auth.signInWithPassword({ email, password });
             });
 
       if (result.error) {

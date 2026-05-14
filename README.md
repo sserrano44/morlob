@@ -11,3 +11,7 @@ Morlob is a control plane and shared backend for existing external agents. It st
 5. Start the app with `pnpm dev`.
 
 The public API is available at both `/api/v1/...` and `/v1/...`.
+
+## Signup Approval
+
+Signup is open. Emails in the database `signup_allowlist` table are approved automatically; all other users are created with pending access until a platform admin approves them in Morlob.

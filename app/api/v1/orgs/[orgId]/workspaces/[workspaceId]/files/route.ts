@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/workspace-context";
 import { env } from "@/lib/config/env";
 import { createPublicId } from "@/lib/core/ids";
+import { resolveLinkTarget } from "@/lib/core/resource-links";
 import { createSupabaseServiceClient } from "@/lib/data/supabase/service";
 import { buildStoragePath, fileToBuffer, sha256 } from "@/lib/storage/files";
 import {
@@ -72,6 +73,7 @@ export async function POST(request: Request, context: RouteContext<Params>) {
     const visibility = fileVisibilitySchema.parse(
       formData.get("visibility") ?? "private"
     );
+    const todoId = formData.get("todo_id");
     const metadataValue = formData.get("metadata");
     const metadata =
       typeof metadataValue === "string" && metadataValue.trim()
@@ -123,6 +125,41 @@ export async function POST(request: Request, context: RouteContext<Params>) {
       throw error;
     }
 
+    let linkedTodoId: string | null = null;
+
+    if (typeof todoId === "string" && todoId.trim()) {
+      const target = await resolveLinkTarget({
+        supabase,
+        workspaceId: workspaceContext.workspace.id,
+        targetResourceType: "todo",
+        targetPublicId: todoId.trim()
+      });
+
+      const { error: linkError } = await supabase.from("resource_links").upsert(
+        {
+          organization_id: workspaceContext.organization.id,
+          workspace_id: workspaceContext.workspace.id,
+          source_resource_type: "file",
+          source_resource_id: fileRecord.id,
+          target_resource_type: "todo",
+          target_resource_id: target.id,
+          relationship: "artifact",
+          created_by_type: actor.actorType,
+          created_by_id: actor.actorId
+        },
+        {
+          onConflict:
+            "workspace_id,source_resource_type,source_resource_id,target_resource_type,target_resource_id,relationship"
+        }
+      );
+
+      if (linkError) {
+        throw linkError;
+      }
+
+      linkedTodoId = target.public_id;
+    }
+
     await writeAuditEvent(supabase, {
       organizationId: workspaceContext.organization.id,
       workspaceId: workspaceContext.workspace.id,
@@ -133,7 +170,8 @@ export async function POST(request: Request, context: RouteContext<Params>) {
       resourceId: fileRecord.id,
       metadata: {
         visibility,
-        size_bytes: file.size
+        size_bytes: file.size,
+        linked_todo_id: linkedTodoId
       }
     });
 
