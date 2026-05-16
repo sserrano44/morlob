@@ -1,6 +1,7 @@
 ---
 name: morlob_todos
 description: Use Morlob's production REST API to list, create, complete, and delete workspace todos.
+homepage: https://www.morlob.com/skills/openclaw-morlob-todos/SKILL.md
 ---
 
 # Morlob Todos
