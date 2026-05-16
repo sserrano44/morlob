@@ -12,6 +12,7 @@ Implemented P0:
 - Agents, scoped API keys, and workspace assignments.
 - Todos with event history and source/external ID upsert.
 - Protected files, public-file visibility, signed download URLs, and file-to-todo links.
+- OpenClaw workspace skill for Morlob todo REST operations.
 - Audit events for sensitive workspace actions.
 - Minimal operator UI at `/app`.
 - Public REST API under `/api/v1/...` and `/v1/...`.
@@ -19,7 +20,6 @@ Implemented P0:
 Not implemented yet:
 
 - MCP endpoint and tools.
-- Skills repository.
 - Knowledge base.
 - SES mail.
 - Billing.
@@ -57,4 +57,5 @@ pnpm db:migrate  # apply SQL migrations through DATABASE_URL
 - [Deployment](docs/deployment.md)
 - [Authentication and Signup Approval](docs/auth.md)
 - [REST API](docs/api.md)
+- [Skills](docs/skills.md)
 - [Operations](docs/operations.md)
