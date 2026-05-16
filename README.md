@@ -57,5 +57,5 @@ pnpm db:migrate  # apply SQL migrations through DATABASE_URL
 - [Deployment](docs/deployment.md)
 - [Authentication and Signup Approval](docs/auth.md)
 - [REST API](docs/api.md)
-- [Skills](docs/skills.md)
+- [Skills](docs/skills.md) (`https://www.morlob.com/skills/openclaw-morlob-todos/SKILL.md`)
 - [Operations](docs/operations.md)

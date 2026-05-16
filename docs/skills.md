@@ -10,6 +10,12 @@ The first OpenClaw skill lives at:
 skills/openclaw-morlob-todos/SKILL.md
 ```
 
+The public URL is:
+
+```text
+https://www.morlob.com/skills/openclaw-morlob-todos/SKILL.md
+```
+
 It teaches OpenClaw how to use the production Morlob REST API at:
 
 ```text
