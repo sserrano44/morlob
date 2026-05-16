@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/auth";
 import { withApi } from "@/lib/api/errors";
 import { routeParams, type RouteContext } from "@/lib/api/params";
+import { listAgentsWithWorkspaceAssignments } from "@/lib/core/agents";
 import { createSupabaseServiceClient } from "@/lib/data/supabase/service";
 import { createAgentSchema } from "@/lib/validation/schemas";
 
@@ -23,18 +24,9 @@ export async function GET(_request: Request, context: RouteContext<Params>) {
       actor.user.id
     );
 
-    const { data, error } = await supabase
-      .from("agents")
-      .select("id, public_id, name, kind, status, created_at")
-      .eq("organization_id", organization.id)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true });
+    const agents = await listAgentsWithWorkspaceAssignments(supabase, organization.id);
 
-    if (error) {
-      throw error;
-    }
-
-    return NextResponse.json({ agents: data ?? [] });
+    return NextResponse.json({ agents });
   });
 }
 

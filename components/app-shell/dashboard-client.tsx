@@ -3,7 +3,6 @@
 import {
   Archive,
   CheckCircle2,
-  Copy,
   FileUp,
   KeyRound,
   ListTodo,
@@ -12,6 +11,7 @@ import {
   ShieldCheck,
   Upload
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -33,14 +33,6 @@ type Workspace = {
   public_id: string;
   name: string;
   slug: string;
-  status: string;
-};
-
-type Agent = {
-  id: string;
-  public_id: string;
-  name: string;
-  kind: string;
   status: string;
 };
 
@@ -78,7 +70,6 @@ type SignupRequest = {
 export type DashboardData = {
   organizations: Organization[];
   workspaces: Workspace[];
-  agents: Agent[];
   todos: Todo[];
   files: FileRecord[];
   isPlatformAdmin: boolean;
@@ -90,13 +81,6 @@ type Props = {
   email: string;
   setupError: string | null;
 };
-
-const defaultScopes = [
-  "todos:read",
-  "todos:write",
-  "files:read",
-  "files:write"
-].join(", ");
 
 async function readJson<T>(response: Response): Promise<T> {
   const payload = await response.json();
@@ -123,7 +107,6 @@ function formatBytes(value: number) {
 export function DashboardClient({ data, email, setupError }: Props) {
   const [organizations, setOrganizations] = useState(data.organizations);
   const [workspaces, setWorkspaces] = useState(data.workspaces);
-  const [agents, setAgents] = useState(data.agents);
   const [todos, setTodos] = useState(data.todos);
   const [files, setFiles] = useState(data.files);
   const [signupRequests, setSignupRequests] = useState(data.signupRequests);
@@ -133,16 +116,10 @@ export function DashboardClient({ data, email, setupError }: Props) {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
     data.workspaces[0]?.public_id ?? ""
   );
-  const [selectedAgentId, setSelectedAgentId] = useState(
-    data.agents[0]?.public_id ?? ""
-  );
   const [orgName, setOrgName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
-  const [agentName, setAgentName] = useState("");
   const [todoTitle, setTodoTitle] = useState("");
   const [todoDescription, setTodoDescription] = useState("");
-  const [scopes, setScopes] = useState(defaultScopes);
-  const [secret, setSecret] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(setupError);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -162,19 +139,12 @@ export function DashboardClient({ data, email, setupError }: Props) {
 
     startTransition(async () => {
       try {
-        const [workspacePayload, agentPayload] = await Promise.all([
-          readJson<{ workspaces: Workspace[] }>(
-            await fetch(`/api/v1/orgs/${selectedOrgId}/workspaces`)
-          ),
-          readJson<{ agents: Agent[] }>(
-            await fetch(`/api/v1/orgs/${selectedOrgId}/agents`)
-          )
-        ]);
+        const workspacePayload = await readJson<{ workspaces: Workspace[] }>(
+          await fetch(`/api/v1/orgs/${selectedOrgId}/workspaces`)
+        );
 
         setWorkspaces(workspacePayload.workspaces);
-        setAgents(agentPayload.agents);
         setSelectedWorkspaceId(workspacePayload.workspaces[0]?.public_id ?? "");
-        setSelectedAgentId(agentPayload.agents[0]?.public_id ?? "");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Failed to load org.");
       }
@@ -267,68 +237,6 @@ export function DashboardClient({ data, email, setupError }: Props) {
       setWorkspaces((current) => [...current, payload.workspace]);
       setSelectedWorkspaceId(payload.workspace.public_id);
       setWorkspaceName("");
-    });
-  }
-
-  function createAgent() {
-    if (!selectedOrgId) {
-      return;
-    }
-
-    run(async () => {
-      const payload = await readJson<{ agent: Agent }>(
-        await fetch(`/api/v1/orgs/${selectedOrgId}/agents`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ name: agentName, kind: "generic" })
-        })
-      );
-      setAgents((current) => [...current, payload.agent]);
-      setSelectedAgentId(payload.agent.public_id);
-      setAgentName("");
-    });
-  }
-
-  function assignAgent() {
-    if (!selectedOrgId || !selectedAgentId || !selectedWorkspaceId) {
-      return;
-    }
-
-    run(async () => {
-      await readJson(
-        await fetch(
-          `/api/v1/orgs/${selectedOrgId}/agents/${selectedAgentId}/workspace-assignments`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ workspace_id: selectedWorkspaceId })
-          }
-        )
-      );
-      setMessage("Agent assigned to workspace.");
-    });
-  }
-
-  function generateKey() {
-    if (!selectedOrgId || !selectedAgentId) {
-      return;
-    }
-
-    run(async () => {
-      const payload = await readJson<{ secret: string }>(
-        await fetch(`/api/v1/orgs/${selectedOrgId}/agents/${selectedAgentId}/keys`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            name: "Default workspace key",
-            scopes: scopes
-              .split(",")
-              .map((scope) => scope.trim())
-              .filter(Boolean)
-          })
-        })
-      );
-      setSecret(payload.secret);
     });
   }
 
@@ -507,25 +415,6 @@ export function DashboardClient({ data, email, setupError }: Props) {
           </div>
         ) : null}
 
-        {secret ? (
-          <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="font-medium">Agent key secret</div>
-                <div className="mt-1 font-mono text-xs">{secret}</div>
-              </div>
-              <Button
-                onClick={() => navigator.clipboard.writeText(secret)}
-                type="button"
-                variant="secondary"
-              >
-                <Copy className="h-4 w-4" />
-                Copy
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
         <section className="mt-6 grid gap-5 lg:grid-cols-[340px_1fr]">
           <div className="space-y-5">
             {data.isPlatformAdmin ? (
@@ -626,60 +515,11 @@ export function DashboardClient({ data, email, setupError }: Props) {
             <Card className="p-4">
               <h2 className="flex items-center gap-2 text-sm font-semibold">
                 <KeyRound className="h-4 w-4 text-primary" />
-                Agents and keys
+                Agents
               </h2>
-              <div className="mt-4 flex gap-2">
-                <Input
-                  disabled={!selectedOrgId}
-                  onChange={(event) => setAgentName(event.target.value)}
-                  placeholder="Codex local"
-                  value={agentName}
-                />
-                <Button
-                  disabled={isPending || !agentName || !selectedOrgId}
-                  onClick={createAgent}
-                >
-                  Create
-                </Button>
-              </div>
-              <select
-                className="mt-3 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm"
-                onChange={(event) => setSelectedAgentId(event.target.value)}
-                value={selectedAgentId}
-              >
-                <option value="">No agent</option>
-                {agents.map((agent) => (
-                  <option key={agent.public_id} value={agent.public_id}>
-                    {agent.name}
-                  </option>
-                ))}
-              </select>
-              <Input
-                className="mt-3"
-                onChange={(event) => setScopes(event.target.value)}
-                value={scopes}
-              />
-              <div className="mt-3 flex gap-2">
-                <Button
-                  disabled={
-                    isPending ||
-                    !selectedOrgId ||
-                    !selectedAgentId ||
-                    !selectedWorkspaceId
-                  }
-                  onClick={assignAgent}
-                  variant="secondary"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  Assign
-                </Button>
-                <Button
-                  disabled={isPending || !selectedOrgId || !selectedAgentId}
-                  onClick={generateKey}
-                >
-                  Generate key
-                </Button>
-              </div>
+              <Button asChild className="mt-4" variant="secondary">
+                <Link href="/app/agents">Open agents</Link>
+              </Button>
             </Card>
           </div>
 

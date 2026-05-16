@@ -13,6 +13,50 @@ import { createSupabaseServiceClient } from "@/lib/data/supabase/service";
 import { createAgentKeySchema } from "@/lib/validation/schemas";
 
 type Params = { orgId: string; agentId: string };
+type KeyWorkspace = {
+  id: string;
+  public_id: string;
+  name: string;
+  slug: string;
+  status: string;
+};
+
+async function resolveWorkspaceForKey(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  organizationId: string,
+  workspacePublicId?: string
+) {
+  let query = supabase
+    .from("workspaces")
+    .select("id, public_id, name, slug, status")
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .is("deleted_at", null);
+
+  if (workspacePublicId) {
+    query = query.eq("public_id", workspacePublicId);
+  }
+
+  const { data, error } = await query
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<KeyWorkspace>();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new ApiError(
+      "validation_error",
+      workspacePublicId
+        ? "Selected workspace was not found or is not active."
+        : "Create an active workspace before creating an agent key."
+    );
+  }
+
+  return data;
+}
 
 export async function POST(request: Request, context: RouteContext<Params>) {
   return withApi(async () => {
@@ -43,6 +87,29 @@ export async function POST(request: Request, context: RouteContext<Params>) {
       throw new ApiError("not_found", "Agent not found.");
     }
 
+    const workspace = await resolveWorkspaceForKey(
+      supabase,
+      organization.id,
+      input.workspace_id
+    );
+    const { data: assignment, error: assignmentError } = await supabase
+      .from("agent_workspace_assignments")
+      .upsert(
+        {
+          organization_id: organization.id,
+          agent_id: agent.id,
+          workspace_id: workspace.id,
+          revoked_at: null
+        },
+        { onConflict: "agent_id,workspace_id" }
+      )
+      .select("id, public_id, agent_id, workspace_id, revoked_at, created_at")
+      .single();
+
+    if (assignmentError) {
+      throw assignmentError;
+    }
+
     const generated = generateApiKey(env.API_KEY_PREFIX);
     const { data: key, error } = await supabase
       .from("agent_api_keys")
@@ -64,6 +131,22 @@ export async function POST(request: Request, context: RouteContext<Params>) {
 
     await writeAuditEvent(supabase, {
       organizationId: organization.id,
+      workspaceId: workspace.id,
+      actorType: "human",
+      actorId: actor.user.id,
+      action: "agent.assigned_to_workspace",
+      resourceType: "agent_workspace_assignment",
+      resourceId: assignment.id,
+      metadata: {
+        agent_id: agent.public_id,
+        workspace_id: workspace.public_id,
+        source: "agent_key_creation"
+      }
+    });
+
+    await writeAuditEvent(supabase, {
+      organizationId: organization.id,
+      workspaceId: workspace.id,
       actorType: "human",
       actorId: actor.user.id,
       action: "agent_key.created",
@@ -71,6 +154,7 @@ export async function POST(request: Request, context: RouteContext<Params>) {
       resourceId: key.id,
       metadata: {
         agent_id: agent.public_id,
+        workspace_id: workspace.public_id,
         scopes: input.scopes
       }
     });
@@ -78,6 +162,8 @@ export async function POST(request: Request, context: RouteContext<Params>) {
     return NextResponse.json(
       {
         key,
+        workspace,
+        assignment,
         secret: generated.plaintext
       },
       { status: 201 }

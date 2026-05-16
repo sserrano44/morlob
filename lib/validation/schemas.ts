@@ -14,9 +14,21 @@ export const createAgentSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).default({})
 });
 
+export const updateAgentSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    kind: z.string().trim().min(1).max(80).optional(),
+    status: z.enum(["active", "disabled", "archived"]).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional()
+  })
+  .refine((input) => Object.keys(input).length > 0, {
+    message: "At least one field is required."
+  });
+
 export const createAgentKeySchema = z.object({
   name: z.string().trim().min(1).max(120).default("Default key"),
-  scopes: z.array(z.string().trim().min(1)).min(1)
+  scopes: z.array(z.string().trim().min(1)).min(1),
+  workspace_id: z.string().trim().min(1).optional()
 });
 
 export const createAssignmentSchema = z.object({

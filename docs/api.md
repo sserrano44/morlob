@@ -75,6 +75,9 @@ Create body:
 ```text
 GET  /api/v1/orgs/:org_id/agents
 POST /api/v1/orgs/:org_id/agents
+GET  /api/v1/orgs/:org_id/agents/:agent_id
+PATCH /api/v1/orgs/:org_id/agents/:agent_id
+DELETE /api/v1/orgs/:org_id/agents/:agent_id
 POST /api/v1/orgs/:org_id/agents/:agent_id/keys
 DELETE /api/v1/orgs/:org_id/agents/:agent_id/keys/:key_id
 POST /api/v1/orgs/:org_id/agents/:agent_id/workspace-assignments
@@ -82,14 +85,19 @@ DELETE /api/v1/orgs/:org_id/agents/:agent_id/workspace-assignments/:workspace_id
 GET /api/v1/agents/me
 ```
 
+Agent list responses include active `workspace_assignments`.
+
 Create key body:
 
 ```json
 {
   "name": "Default key",
+  "workspace_id": "wsp_...",
   "scopes": ["todos:read", "todos:write", "files:read", "files:write"]
 }
 ```
+
+Key creation assigns the agent to `workspace_id`. If `workspace_id` is omitted, Morlob assigns the agent to the first active workspace in the organization.
 
 API key secrets are returned once and only a salted one-way hash is stored.
 

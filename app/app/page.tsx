@@ -51,7 +51,6 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
     return {
       organizations,
       workspaces: [],
-      agents: [],
       todos: [],
       files: [],
       isPlatformAdmin: access?.is_platform_admin ?? false,
@@ -59,27 +58,18 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
     };
   }
 
-  const [{ data: workspaces }, { data: agents }] = await Promise.all([
-    supabase
-      .from("workspaces")
-      .select("id, public_id, name, slug, status, created_at")
-      .eq("organization_id", selectedOrg.id)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("agents")
-      .select("id, public_id, name, kind, status, created_at")
-      .eq("organization_id", selectedOrg.id)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true })
-  ]);
+  const { data: workspaces } = await supabase
+    .from("workspaces")
+    .select("id, public_id, name, slug, status, created_at")
+    .eq("organization_id", selectedOrg.id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
   const selectedWorkspace = workspaces?.[0];
 
   if (!selectedWorkspace) {
     return {
       organizations,
       workspaces: workspaces ?? [],
-      agents: agents ?? [],
       todos: [],
       files: [],
       isPlatformAdmin: access?.is_platform_admin ?? false,
@@ -111,7 +101,6 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
   return {
     organizations,
     workspaces: workspaces ?? [],
-    agents: agents ?? [],
     todos: todos ?? [],
     files: files ?? [],
     isPlatformAdmin: access?.is_platform_admin ?? false,
@@ -150,7 +139,6 @@ export default async function AppPage() {
     data = {
       organizations: [],
       workspaces: [],
-      agents: [],
       todos: [],
       files: [],
       isPlatformAdmin: access.is_platform_admin,
