@@ -10,6 +10,6 @@ export function OPTIONS() {
   return corsPreflight();
 }
 
-export function GET() {
-  return jsonWithCors(authorizationServerMetadata());
+export function GET(request: Request) {
+  return jsonWithCors(authorizationServerMetadata(request));
 }

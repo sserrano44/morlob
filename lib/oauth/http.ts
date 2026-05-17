@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { env } from "@/lib/config/env";
-import { OAUTH_SCOPES, mcpResourceUrl, oauthIssuer } from "@/lib/oauth/config";
+import {
+  OAUTH_SCOPES,
+  mcpResourceUrl,
+  oauthIssuer,
+  requestOrigin
+} from "@/lib/oauth/config";
 
 export const oauthCorsHeaders = {
   "access-control-allow-origin": "*",
@@ -32,20 +37,25 @@ export function corsPreflight() {
   });
 }
 
-export function protectedResourceMetadata() {
+export function protectedResourceMetadata(request?: Request) {
+  const origin = request ? requestOrigin(request) : undefined;
+
   return {
-    resource: mcpResourceUrl(),
-    authorization_servers: [oauthIssuer()],
+    resource: mcpResourceUrl(origin),
+    authorization_servers: [oauthIssuer(origin)],
     bearer_methods_supported: ["header"],
     scopes_supported: OAUTH_SCOPES
   };
 }
 
-export function authorizationServerMetadata() {
+export function authorizationServerMetadata(request?: Request) {
+  const origin = request ? requestOrigin(request) : undefined;
+  const issuer = oauthIssuer(origin);
+
   return {
-    issuer: oauthIssuer(),
-    authorization_endpoint: `${oauthIssuer()}/oauth/authorize`,
-    token_endpoint: `${oauthIssuer()}/oauth/token`,
+    issuer,
+    authorization_endpoint: `${issuer}/oauth/authorize`,
+    token_endpoint: `${issuer}/oauth/token`,
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     token_endpoint_auth_methods_supported: ["none"],
@@ -55,11 +65,13 @@ export function authorizationServerMetadata() {
   };
 }
 
-export function oauthChallenge() {
-  return `Bearer realm="${env.MCP_SERVER_NAME} MCP", resource_metadata="${oauthIssuer()}/.well-known/oauth-protected-resource"`;
+export function oauthChallenge(request?: Request) {
+  const origin = request ? requestOrigin(request) : undefined;
+
+  return `Bearer realm="${env.MCP_SERVER_NAME} MCP", resource_metadata="${oauthIssuer(origin)}/.well-known/oauth-protected-resource"`;
 }
 
-export function unauthorizedMcpResponse() {
+export function unauthorizedMcpResponse(request?: Request) {
   return jsonWithCors(
     {
       error: "invalid_token",
@@ -68,7 +80,7 @@ export function unauthorizedMcpResponse() {
     {
       status: 401,
       headers: {
-        "www-authenticate": oauthChallenge()
+        "www-authenticate": oauthChallenge(request)
       }
     }
   );

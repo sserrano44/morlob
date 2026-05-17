@@ -283,7 +283,8 @@ export async function refreshOAuthAccessToken(
 
 export async function validateOAuthAccessToken(
   supabase: SupabaseClient,
-  accessToken: string
+  accessToken: string,
+  expectedResource = mcpResourceUrl()
 ): Promise<OAuthAccessActor | null> {
   const { data: token, error } = await supabase
     .from("oauth_access_tokens")
@@ -301,7 +302,7 @@ export async function validateOAuthAccessToken(
     !token ||
     token.revoked_at ||
     isExpired(token.expires_at) ||
-    token.resource !== mcpResourceUrl()
+    token.resource !== expectedResource
   ) {
     return null;
   }

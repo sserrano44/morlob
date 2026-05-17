@@ -22,6 +22,7 @@ The MCP endpoint returns a `WWW-Authenticate` challenge when Claude connects wit
 1. Deploy Morlob to a public HTTPS URL.
 2. Apply database migrations.
 3. Set `NEXT_PUBLIC_APP_URL` to the production origin, for example `https://www.morlob.com`.
+   The OAuth discovery responses also derive their origin from forwarded request headers on Vercel, so they should not advertise `localhost` in production.
 4. Open Claude Cowork or Claude settings.
 5. Go to Settings -> Connectors.
 6. Add a custom connector.
@@ -105,6 +106,8 @@ Discovery endpoints should return JSON:
 curl -fsSL https://www.morlob.com/.well-known/oauth-protected-resource
 curl -fsSL https://www.morlob.com/.well-known/oauth-authorization-server
 ```
+
+The protected resource `resource`, authorization server `issuer`, `authorization_endpoint`, and `token_endpoint` values must all use `https://www.morlob.com`. If Claude redirects to `http://localhost:3000/oauth/authorize`, redeploy and verify these discovery responses before reconnecting the connector.
 
 Invalid token exchanges should fail cleanly:
 

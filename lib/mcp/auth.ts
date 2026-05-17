@@ -1,6 +1,7 @@
 import { authenticateAgent, getBearerToken } from "@/lib/api/auth";
 import { createSupabaseServiceClient } from "@/lib/data/supabase/service";
 import { hasScope } from "@/lib/core/permissions";
+import { mcpResourceUrl, requestOrigin } from "@/lib/oauth/config";
 import { validateOAuthAccessToken } from "@/lib/oauth/tokens";
 
 export type McpActor =
@@ -53,7 +54,11 @@ export async function authenticateMcpRequest(request: Request) {
   const supabase = createSupabaseServiceClient();
 
   if (token.startsWith("moa_")) {
-    const actor = await validateOAuthAccessToken(supabase, token);
+    const actor = await validateOAuthAccessToken(
+      supabase,
+      token,
+      mcpResourceUrl(requestOrigin(request))
+    );
 
     if (!actor) {
       return null;

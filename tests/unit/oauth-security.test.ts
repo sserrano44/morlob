@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { mcpResourceUrl, requestOrigin } from "@/lib/oauth/config";
 import {
   appendRedirectParams,
   isAllowedRedirectUri,
@@ -47,5 +48,22 @@ describe("oauth security helpers", () => {
       "/oauth/authorize?state=abc"
     );
     expect(safeInternalPath("https://evil.example")).toBe("/app");
+  });
+
+  it("builds OAuth origins from forwarded production headers", () => {
+    const request = new Request(
+      "http://localhost:3000/.well-known/oauth-protected-resource",
+      {
+        headers: {
+          "x-forwarded-host": "www.morlob.com",
+          "x-forwarded-proto": "https"
+        }
+      }
+    );
+
+    expect(requestOrigin(request)).toBe("https://www.morlob.com");
+    expect(mcpResourceUrl(requestOrigin(request))).toBe(
+      "https://www.morlob.com/api/mcp"
+    );
   });
 });

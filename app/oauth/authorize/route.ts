@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { ensureUserAccess } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/data/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/data/supabase/service";
-import { mcpResourceUrl } from "@/lib/oauth/config";
+import { mcpResourceUrl, requestOrigin } from "@/lib/oauth/config";
 import {
   appendRedirectParams,
   isAllowedRedirectUri,
@@ -50,7 +50,7 @@ function htmlEscape(value: string) {
     .replaceAll('"', "&quot;");
 }
 
-function parseAuthorizeParams(url: URL): AuthorizeParams {
+function parseAuthorizeParams(url: URL, expectedResource: string): AuthorizeParams {
   const responseType = url.searchParams.get("response_type") ?? "";
   const clientId = url.searchParams.get("client_id") ?? "";
   const redirectUri = url.searchParams.get("redirect_uri") ?? "";
@@ -58,7 +58,7 @@ function parseAuthorizeParams(url: URL): AuthorizeParams {
   const codeChallengeMethod = url.searchParams.get("code_challenge_method") ?? "";
   const scope = parseScopes(url.searchParams.get("scope"));
   const state = url.searchParams.get("state") ?? undefined;
-  const resource = url.searchParams.get("resource") ?? mcpResourceUrl();
+  const resource = url.searchParams.get("resource") ?? expectedResource;
 
   if (responseType !== "code") {
     throw new Error("response_type must be code.");
@@ -76,7 +76,7 @@ function parseAuthorizeParams(url: URL): AuthorizeParams {
     throw new Error("PKCE S256 is required.");
   }
 
-  if (resource !== mcpResourceUrl()) {
+  if (resource !== expectedResource) {
     throw new Error("resource must match the MCP endpoint.");
   }
 
@@ -232,11 +232,12 @@ function htmlResponse(body: string, init?: ResponseInit) {
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const params = parseAuthorizeParams(url);
+    const origin = requestOrigin(request);
+    const params = parseAuthorizeParams(url, mcpResourceUrl(origin));
     const { user, loginRedirect } = await getUser(request);
 
     if (!user) {
-      return NextResponse.redirect(new URL(loginRedirect, url.origin));
+      return NextResponse.redirect(new URL(loginRedirect, origin));
     }
 
     const supabase = createSupabaseServiceClient();
@@ -289,19 +290,20 @@ export async function POST(request: Request) {
     }
 
     const url = new URL(request.url);
+    const origin = requestOrigin(request);
     for (const [key, value] of form.entries()) {
       if (typeof value === "string") {
         url.searchParams.set(key, value);
       }
     }
 
-    const params = parseAuthorizeParams(url);
+    const params = parseAuthorizeParams(url, mcpResourceUrl(origin));
     const workspacePublicId = String(form.get("workspace_id") ?? "");
     const { user, loginRedirect } = await getUser(request);
 
     if (!user) {
       return NextResponse.redirect(
-        new URL(safeInternalPath(loginRedirect), new URL(request.url).origin)
+        new URL(safeInternalPath(loginRedirect), origin)
       );
     }
 

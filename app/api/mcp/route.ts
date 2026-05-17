@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   const actor = await authenticateMcpRequest(request);
 
   if (!actor) {
-    return unauthorizedMcpResponse();
+    return unauthorizedMcpResponse(request);
   }
 
   return jsonWithCors(
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   const actor = await authenticateMcpRequest(request);
 
   if (!actor) {
-    return unauthorizedMcpResponse();
+    return unauthorizedMcpResponse(request);
   }
 
   const server = createMorlobMcpServer(actor);
