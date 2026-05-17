@@ -15,6 +15,27 @@ Workspace-scoped routes always include explicit organization and workspace IDs:
 
 Use Morlob public IDs such as `org_...`, `wsp_...`, `agt_...`, `todo_...`, and `file_...`.
 
+## MCP
+
+```text
+POST /api/mcp
+GET  /api/mcp
+```
+
+`POST /api/mcp` is the remote Streamable HTTP MCP endpoint. It accepts MCP JSON-RPC requests with OAuth bearer tokens issued by Morlob, and also supports existing Morlob agent API keys for non-Claude agents.
+
+`GET /api/mcp` returns an OAuth challenge when unauthenticated and `405` when authenticated because this deployment uses stateless JSON responses over POST.
+
+OAuth discovery:
+
+```text
+GET /.well-known/oauth-protected-resource
+GET /.well-known/oauth-authorization-server
+GET /oauth/authorize
+POST /oauth/authorize
+POST /oauth/token
+```
+
 ## Authentication
 
 Human UI/API requests use Supabase Auth cookies.

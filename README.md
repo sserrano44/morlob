@@ -58,4 +58,5 @@ pnpm db:migrate  # apply SQL migrations through DATABASE_URL
 - [Authentication and Signup Approval](docs/auth.md)
 - [REST API](docs/api.md)
 - [Skills](docs/skills.md) (`https://www.morlob.com/skills/openclaw-morlob-todos/SKILL.md`)
+- [Claude Cowork MCP Connector](docs/claude-cowork-mcp.md)
 - [Operations](docs/operations.md)

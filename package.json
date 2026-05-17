@@ -13,9 +13,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@radix-ui/react-slot": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
-    "@radix-ui/react-slot": "latest",
     "clsx": "latest",
     "lucide-react": "latest",
     "next": "latest",

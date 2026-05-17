@@ -7,7 +7,11 @@ import { Input } from "@/components/ui/input";
 import { supabasePublishableKey } from "@/lib/config/public-env";
 import { createSupabaseBrowserClient } from "@/lib/data/supabase/browser";
 
-export function LoginForm() {
+type LoginFormProps = {
+  nextPath?: string;
+};
+
+export function LoginForm({ nextPath = "/app" }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -52,7 +56,7 @@ export function LoginForm() {
         return;
       }
 
-      window.location.href = "/app";
+      window.location.href = nextPath;
     });
   }
 

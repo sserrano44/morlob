@@ -1,6 +1,14 @@
 import { LoginForm } from "@/components/app-shell/login-form";
+import { safeInternalPath } from "@/lib/oauth/security";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = (await searchParams) ?? {};
+  const nextParam = Array.isArray(params.next) ? params.next[0] : params.next;
+
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
@@ -11,7 +19,7 @@ export default function LoginPage() {
             this build.
           </p>
         </div>
-        <LoginForm />
+        <LoginForm nextPath={safeInternalPath(nextParam)} />
       </div>
     </main>
   );

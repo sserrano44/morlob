@@ -2,6 +2,21 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
+const psqlEnv = {
+  ...process.env,
+  PATH: [
+    process.env.PATH,
+    "/opt/homebrew/bin",
+    "/usr/local/bin"
+  ]
+    .filter(Boolean)
+    .join(":")
+};
+
+function redact(value) {
+  return (value ?? "").replaceAll(databaseUrl, "[redacted]");
+}
+
 function loadEnvFile(path) {
   if (!existsSync(path)) {
     return {};
@@ -60,13 +75,19 @@ function runPsql(args, options = {}) {
   const result = spawnSync("psql", [databaseUrl, ...args], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    env: psqlEnv,
     ...options
   });
 
-  process.stderr.write(result.stderr.replaceAll(databaseUrl, "[redacted]"));
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+
+  process.stderr.write(redact(result.stderr));
 
   if (result.status !== 0) {
-    process.stdout.write(result.stdout.replaceAll(databaseUrl, "[redacted]"));
+    process.stdout.write(redact(result.stdout));
     process.exit(result.status ?? 1);
   }
 
@@ -125,11 +146,17 @@ for (const migration of migrations) {
 
   const result = spawnSync("psql", [databaseUrl, "-v", "ON_ERROR_STOP=1", "-f", filePath], {
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"]
+    stdio: ["ignore", "pipe", "pipe"],
+    env: psqlEnv
   });
 
-  process.stdout.write(result.stdout.replaceAll(databaseUrl, "[redacted]"));
-  process.stderr.write(result.stderr.replaceAll(databaseUrl, "[redacted]"));
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+
+  process.stdout.write(redact(result.stdout));
+  process.stderr.write(redact(result.stderr));
 
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
