@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { writeAuditEvent } from "@/lib/api/audit";
 import { withApi } from "@/lib/api/errors";
-import { routeParams, type RouteContext } from "@/lib/api/params";
+import { clampInt, routeParams, type RouteContext } from "@/lib/api/params";
 import {
   actorDbFields,
   requireWorkspaceContext
@@ -22,20 +22,35 @@ export async function GET(request: Request, context: RouteContext<Params>) {
       requiredAgentScope: "todos:read"
     });
 
-    const { data, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const limit = clampInt(searchParams.get("limit"), 50, 1, 1000);
+    const offset = clampInt(searchParams.get("offset"), 0, 0, Number.MAX_SAFE_INTEGER);
+
+    const { data, error, count } = await supabase
       .from("todos")
       .select(
-        "id, public_id, title, description, status, priority, assignee_type, assignee_id, source, external_id, labels, metadata, due_at, scheduled_for, created_at, updated_at"
+        "id, public_id, title, description, status, priority, assignee_type, assignee_id, source, external_id, labels, metadata, due_at, scheduled_for, created_at, updated_at",
+        { count: "exact" }
       )
       .eq("workspace_id", workspaceContext.workspace.id)
       .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw error;
     }
 
-    return NextResponse.json({ todos: data ?? [] });
+    const todos = data ?? [];
+    const total = count ?? 0;
+
+    return NextResponse.json({
+      todos,
+      total,
+      limit,
+      offset,
+      has_more: offset + todos.length < total
+    });
   });
 }
 

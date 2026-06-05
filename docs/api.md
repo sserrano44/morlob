@@ -133,6 +133,8 @@ DELETE /api/v1/orgs/:org_id/workspaces/:workspace_id/todos/:todo_id
 POST   /api/v1/orgs/:org_id/workspaces/:workspace_id/todos/upsert
 ```
 
+The todos list endpoint accepts `?limit=` (1–1000, default 50) and `?offset=` (default 0) query params and returns `{ todos, total, limit, offset, has_more }`. Page through large workspaces by incrementing `offset` until `has_more` is `false`.
+
 Todo upsert requires `external_id` and matches by workspace, source, and external ID.
 
 ## Files

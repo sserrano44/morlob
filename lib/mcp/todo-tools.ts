@@ -49,7 +49,11 @@ const itemSchema = z
 
 const listItemsOutputSchema = z
   .object({
-    items: z.array(itemSchema)
+    items: z.array(itemSchema),
+    total: z.number().int(),
+    limit: z.number().int(),
+    offset: z.number().int(),
+    has_more: z.boolean()
   })
   .strict();
 
@@ -189,28 +193,30 @@ export function createMorlobMcpServer(actor: McpActor) {
     "list_items",
     {
       title: "List Morlob todos",
-      description: "List todos from the authorized Morlob workspace.",
+      description:
+        "List todos from the authorized Morlob workspace. Supports pagination via limit (max 1000) and offset; the response reports total and has_more so you can page through every item.",
       inputSchema: z
         .object({
           status: todoStatusSchema.optional(),
           source: todoSourceSchema.optional(),
           external_id: z.string().trim().min(1).max(240).optional(),
-          limit: z.number().int().min(1).max(100).default(50)
+          limit: z.number().int().min(1).max(1000).default(50),
+          offset: z.number().int().min(0).default(0)
         })
         .strict(),
       outputSchema: listItemsOutputSchema
     },
-    async ({ status, source, external_id, limit }) => {
+    async ({ status, source, external_id, limit, offset }) => {
       requireMcpScope(actor, "todos:read");
       const supabase = createSupabaseServiceClient();
       let query = supabase
         .from("todos")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("organization_id", actor.organizationId)
         .eq("workspace_id", actor.workspaceId)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (status) {
         query = query.eq("status", status);
@@ -224,14 +230,20 @@ export function createMorlobMcpServer(actor: McpActor) {
         query = query.eq("external_id", external_id);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) {
         throw error;
       }
 
+      const total = count ?? 0;
+
       return textResult({
-        items: ((data ?? []) as TodoRow[]).map(toItem)
+        items: ((data ?? []) as TodoRow[]).map(toItem),
+        total,
+        limit,
+        offset,
+        has_more: offset + (data?.length ?? 0) < total
       });
     }
   );
